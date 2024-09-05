@@ -1,13 +1,13 @@
 import tensorflow as tf
 import datetime
-from ts_model import TrafficSignModel
-from ts_model import parameter, model
 import numpy as np
 import os
-from tensorflow import keras
-from keras._tf_keras.keras.preprocessing.image  import load_img, img_to_array
+from tensorflow.keras.preprocessing.image import load_img, img_to_array
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
+from tensorflow.keras import layers
+from tensorflow.keras.models import Sequential
+
 # Load and preprocess data
 class DataLoader:
     def __init__(self, data_dir):
@@ -33,6 +33,45 @@ class DataLoader:
 
         return x_train, y_train, x_test, y_test
 
+# Model definition and training
+class TrafficSignModel:
+    def __init__(self, input_shape=(32, 32, 3), num_classes=43):
+        self.input_shape = input_shape
+        self.num_classes = num_classes
+        self.model = self.build_model()
+
+    def build_model(self):
+        # Define the feature extractor part (convolutional layers)
+        model = Sequential([
+            layers.Conv2D(32, (3, 3), activation='relu', input_shape=self.input_shape, padding='same'),
+            layers.Conv2D(32, (3, 3), activation='relu'),
+            layers.MaxPooling2D((2, 2)),
+            layers.Dropout(0.25),
+
+            layers.Conv2D(64, (3, 3), activation='relu', padding='same'),
+            layers.Conv2D(64, (3, 3), activation='relu'),
+            layers.MaxPooling2D((2, 2)),
+            layers.Dropout(0.25),
+
+            layers.Conv2D(128, (3, 3), activation='relu', padding='same'),
+            layers.Conv2D(128, (3, 3), activation='relu'),
+            layers.MaxPooling2D((2, 2)),
+            layers.Dropout(0.25),
+
+            layers.Flatten(),
+            layers.Dense(512, activation='relu'),
+            layers.Dropout(0.5),
+            layers.Dense(self.num_classes, activation='softmax')
+        ])
+
+        return model
+
+    def compile_model(self, optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy']):
+        # Compile the model with optimizer, loss, and metrics
+        self.model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+        return self.model
+
+# Trainer class for managing the training process
 class Trainer:
     def __init__(self, data_dir='data/GTSRB/Final_Training/Images'):
         self.data_dir = data_dir
@@ -43,7 +82,7 @@ class Trainer:
 
         model_builder = TrafficSignModel(input_shape=(32, 32, 3), num_classes=43)
         model = model_builder.create_model()
-        model = model_builder.compile_model(model, optimizer=optimizer, loss=loss)
+        model = model_builder.compile_model(optimizer=optimizer, loss=loss)
 
         log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
